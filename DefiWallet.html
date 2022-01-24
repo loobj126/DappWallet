@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>DeFi Wallet</title>
+
+    <meta charset="utf-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+  
+
+    <script src="assets/js/ethers-5.2.umd.min.js" type="application/javascript"></script>
+    <script src="assets/js/vue.min.js"></script>
+
+    <!-- <style> -->
+    
+    <style type="text/css">
+      #root {
+        height: 100%;
+      }
+
+      #root::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        min-width: 100%;
+        min-height: 100%;
+        /* filter: grayscale(100%); */
+        filter: alpha(opacity=40);
+        background-repeat: no-repeat;
+        background-size: cover;
+      }
+
+
+    </style>
+</head>
+
+<body>
+    
+        <div class="container py-10" id="dapp">
+        <h1>DeFi Wallet</h1>
+        <button style="float: left; width: 130px; border-radius:40px ;font-weight:700px" class="btn-info" v-on:click.prevent="connectWallet()">Connect Wallet</button>
+         
+       
+        <form class="row g-3">
+            <div class="col-auto">
+              <div v-if="signer === null">
+               
+              </div>
+              <div v-else>
+                Connected : {{signerAddr}}
+              </div>
+            </div>
+        </form>
+
+        <p>
+ 
+        </p>
+
+          <div v-if="signer !== null" class="tab-content" id="myTabContent">
+            <div class="py-3 tab-pane fade show active" id="eth" role="tabpanel" aria-labelledby="eth-tab">
+                <div class="row my-2">
+                    <div class="col-auto">Current Market Price: USD {{ formatPrice(ethPriceUsd) }}</span></div>
+                </div>
+                <div class="row my-2">
+                    <div class="col-auto">Acc Balance: </div>
+                    <div class="col-auto">{{ formatBalance(ethBalance) }} <span class="badge bg-info fs-6 p-1">USD {{ethBalanceUsd}}</span></div>
+                </div>
+  
+                <div class="row">
+                
+                    <div class="col-auto">
+                        <button class="btn btn-danger" v-on:click.prevent="withdrawEth()">Withdraw ETH</button>
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-success" v-on:click.prevent="depositEth()">Deposit ETH</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-auto">
+                Amount :
+            </div>
+            <div class="col-auto">
+                <input v-model="ethAmount" type="number" class="form-control" placeholder="Amount" />
+            </div>
+            <hr />    
+
+            <div class="py-3 tab-pane fade" id="link" role="tabpanel" aria-labelledby="link-tab">
+                <div class="row my-2">
+                    <div class="col-auto">Current Market Price: </div>
+                    <div class="col-auto"><span class="badge bg-info fs-6 p-1">USD {{ formatPrice(linkPriceUsd) }}</span></div>
+                </div>
+                <div class="row my-2">
+                    <div class="col-auto">Acc Balance: </div>
+                    <div class="col-auto">{{ formatBalance(linkBalance) }} 
+                        <span class="badge bg-info fs-6 p-1">USD {{linkBalanceUsd}}</span>
+                    </div>
+                </div>
+               
+                <div class="row">
+                 
+                  
+                        <button class="btn btn-danger" v-on:click.prevent="withdrawLink()">Withdraw LINK</button>
+             
+                   
+                        <button class="btn btn-success" v-on:click.prevent="depositLink()">Deposit LINK</button>
+                    
+                </div>
+            </div>
+
+            <div class="col-auto">
+                Amount :
+            </div>
+            <div class="col-auto">
+                <input v-model="linkAmount" type="number" class="form-control" placeholder="Amount" />
+            </div>
+            <hr />    
+
+          </div>
+          
+    
+          
+    </div>
+
+    <script>
+        var dapp = new Vue({
+            el: '#dapp',
+            data: {
+                ethPriceUsd: 0,
+                linkPriceUsd: 0,
+                PRICEDEC: 8,    
+
+                provider: null,
+                signer: null,
+                signerAddr: '???',
+
+                linkContractObj: null,
+                linkContractAddr: '0x01BE23585060835E02B77ef475b0Cc51aA1e0709',
+                linkContractAbi: [
+                    'function approve(address spender, uint256 amount) external returns (bool)',
+                    'function transfer(address recipient, uint256 amount) external returns (bool)'
+                ],
+
+                contractObj: null,
+              
+               //contractAddr: '0xc41D10355e6Ec2e9C44Fc0028A384dcE398cc983',
+             //    contractAddr: '0x1B2Ab601397b166e6347C56D9dE075f5B9B3bFa7',
+              // contractAddr: '0x809DA1fc7937918d0385433885EC96AB6EE22138',
+               contractAddr: '0x179d635B229D30c726a7762B2c57dD05E3418A49',
+                
+                contractAbi: [
+                    {
+                        "inputs": [],
+                        "name": "depositEth",
+                        "outputs": [],
+                        "stateMutability": "payable",
+                        "type": "function"
+                    },
+                    {
+                        "inputs": [
+                            {
+                                "internalType": "uint256",
+                                "name": "amount",
+                                "type": "uint256"
+                            }
+                        ],
+                        "name": "depositLink",
+                        "outputs": [],
+                        "stateMutability": "nonpayable",
+                        "type": "function"
+                    },
+                    {
+                        "inputs": [],
+                        "stateMutability": "nonpayable",
+                        "type": "constructor"
+                    },
+                    {
+                        "inputs": [
+                            {
+                                "internalType": "uint256",
+                                "name": "amount",
+                                "type": "uint256"
+                            }
+                        ],
+                        "name": "withdrawEth",
+                        "outputs": [],
+                        "stateMutability": "nonpayable",
+                        "type": "function"
+                    },
+                    {
+                        "inputs": [
+                            {
+                                "internalType": "uint256",
+                                "name": "amount",
+                                "type": "uint256"
+                            }
+                        ],
+                        "name": "withdrawLink",
+                        "outputs": [],
+                        "stateMutability": "nonpayable",
+                        "type": "function"
+                    },
+                    {
+                        "inputs": [
+                            {
+                                "internalType": "address",
+                                "name": "_userAddr",
+                                "type": "address"
+                            }
+                        ],
+                        "name": "getEthBalance",
+                        "outputs": [
+                            {
+                                "internalType": "uint256",
+                                "name": "",
+                                "type": "uint256"
+                            }
+                        ],
+                        "stateMutability": "view",
+                        "type": "function"
+                    },
+                    {
+                        "inputs": [],
+                        "name": "getlatestEthPrice",
+                        "outputs": [
+                            {
+                                "internalType": "int256",
+                                "name": "",
+                                "type": "int256"
+                            }
+                        ],
+                        "stateMutability": "view",
+                        "type": "function"
+                    },
+                    {
+                        "inputs": [],
+                        "name": "getlatestLinkPrice",
+                        "outputs": [
+                            {
+                                "internalType": "int256",
+                                "name": "",
+                                "type": "int256"
+                            }
+                        ],
+                        "stateMutability": "view",
+                        "type": "function"
+                    },
+                    {
+                        "inputs": [
+                            {
+                                "internalType": "address",
+                                "name": "_userAddr",
+                                "type": "address"
+                            }
+                        ],
+                        "name": "getLinkBalance",
+                        "outputs": [
+                            {
+                                "internalType": "uint256",
+                                "name": "",
+                                "type": "uint256"
+                            }
+                        ],
+                        "stateMutability": "view",
+                        "type": "function"
+                    },
+                    {
+                        "inputs": [
+                            {
+                                "internalType": "address",
+                                "name": "",
+                                "type": "address"
+                            }
+                        ],
+                        "name": "users",
+                        "outputs": [
+                            {
+                                "internalType": "uint256",
+                                "name": "ethbal",
+                                "type": "uint256"
+                            },
+                            {
+                                "internalType": "uint256",
+                                "name": "lnkbal",
+                                "type": "uint256"
+                            },
+                            {
+                                "internalType": "uint256",
+                                "name": "usdtbal",
+                                "type": "uint256"
+                            }
+                        ],
+                        "stateMutability": "view",
+                        "type": "function"
+                    }
+                    ],
+
+                ethBalance: 0,
+                ethBalanceUsd: 0,
+                ethAmount: 0,
+
+                linkBalance: 0,
+                linkBalanceUsd: 0,
+                linkAmount: 0,
+
+                output: {
+                    isVisible: false,
+                    message: 'Sampel output',
+                    alertClass: 'alert',
+                    colorClass: 'alert-secondary'
+                },
+
+                isLoading: false
+
+            },
+            mounted: function() {
+                this.provider = new ethers.providers.Web3Provider(window.ethereum);
+                this.contractObj = new ethers.Contract(this.contractAddr, this.contractAbi, this.provider);
+                this.loadBalanceValue();
+            },
+            methods: {
+                atmContractUrl: function() {
+                    return 'https://rinkeby.etherscan.io/address/' + this.contractAddr;
+                },
+                formatBalance: function(Number) {
+                    return ethers.utils.formatEther(Number);
+                },
+                formatPrice: function (Number) {
+                    return Number === 0 ? 0 :Number.toString();
+                },
+                loadBalanceValue: async function() {
+                    if(this.signer === null){
+                        return;
+                    }
+
+                    this.isLoading = true;
+
+                    // Retrieve ETH balance for user
+
+                    this.ethBalance = await this.contractObj.getEthBalance(this.signerAddr);
+                    console.log('ETH Balance : ' + this.ethBalance);
+
+                    // let ethPrice = await this.contractObj.getEthPriceInUsd();
+                    let ethPrice = await this.contractObj.getlatestEthPrice();
+                    console.log('ETH price: ' + ethPrice);
+                    this.ethPriceUsd = ethers.utils.formatUnits(ethPrice, this.PRICEDEC);
+                    console.log('ETH in USD: ' + this.ethPriceUsd.toString());
+                    this.ethBalanceUsd = Number(this.ethPriceUsd) * Number(this.formatBalance(this.ethBalance));
+                    
+
+
+                    // Retrieve LINK balance for user
+                    this.linkBalance = await this.contractObj.getLinkBalance(this.signerAddr);
+                    console.log('LINK Balance : ' + this.linkBalance );
+
+                    let linkPrice = await this.contractObj.getlatestLinkPrice();
+                    console.log('LINK price: ' + linkPrice);
+                    this.linkPriceUsd = ethers.utils.formatUnits(linkPrice, this.PRICEDEC);
+                    console.log('LINK in USD: ' + this.linkPriceUsd.toString());
+                    this.linkBalanceUsd = Number(this.linkPriceUsd) * Number(this.formatBalance(this.linkBalance));
+
+                    this.isLoading = false;
+                },
+                connectWallet: async function() {
+                    // Prompt user for account connections
+                    await this.provider.send("eth_requestAccounts", []);
+                    this.signer = this.provider.getSigner();
+                    this.signerAddr = await this.signer.getAddress();
+                    this.loadBalanceValue();
+
+                    
+                    
+                },
+                depositLink: async function() {
+                    let lnkcontract = new ethers.Contract(this.linkContractAddr, this.linkContractAbi, this.signer); 
+                    let self = this;
+
+                    self.isLoading = true;
+                    try  {
+                        // Approve ATM contract to use the specified amount of LINK token
+                        let txRsp = await lnkcontract.approve(this.contractAddr, this.linkAmount);
+                        // Wait until the transaction is processed
+                        await txRsp.wait();
+
+                        // Now that we are approved, call ATM depositLink() to transfer the LINK token to the ATM
+                        let contractWallet = new ethers.Contract(this.contractAddr, this.contractAbi, this.signer);
+                        let depositTxRsp = await contractWallet.depositLink(self.linkAmount);
+                        // Wait until the transaction is processed
+                        await depositTxRsp.wait();
+
+                        // Refresh the balance
+                        await self.loadBalanceValue();
+                        self.linkAmount = 0;
+                    } catch (error) {
+                        self.output.isVisible = true;
+                        self.output.message = error;
+                    } finally {
+                        self.isLoading = false;
+                    }
+                },
+                withdrawLink: async function() {
+                    let contractWallet = new ethers.Contract(this.contractAddr, this.contractAbi, this.signer);
+                    let self = this;
+
+                    self.isLoading = true;
+                    try {
+                        // Send the transaction
+                        let txRsp = await contractWallet.withdrawLink(this.linkAmount);
+                        // Wait until transaction is processed
+                        await txRsp.wait();
+                        await self.loadBalanceValue();
+                        this.linkAmount = 0;
+                    } catch(error) {
+                        self.output.isVisible = true;
+                        self.output.message = error;
+                    } finally {
+                        self.isLoading = false;
+                    }
+                },
+                depositEth: async function() {
+                    let contractWallet = new ethers.Contract(this.contractAddr, this.contractAbi, this.signer);
+                    let self = this;
+
+                    self.isLoading = true;
+                    try {
+                        let txRsp = await contractWallet.depositEth({value: this.ethAmount});
+                        await txRsp.wait();
+
+                        // Refresh the balance
+                        await self.loadBalanceValue();
+                        self.ethAmount = 0;
+                    } catch(error) {
+                        self.output.isVisible = true;
+                        self.output.message = error;
+                    } finally {
+                        self.isLoading = false;
+                    }
+                },
+                withdrawEth: async function() {
+                    let contractWallet = new ethers.Contract(this.contractAddr, this.contractAbi, this.signer);
+                    let self = this;
+
+                    self.isLoading = true;
+                    try {
+                        let txRsp = await contractWallet.withdrawEth(this.ethAmount);
+                        await txRsp.wait();
+
+                        // Refresh the balance
+                        await self.loadBalanceValue();
+                        this.ethAmount = 0;
+                    } catch(error) {
+                        self.output.isVisible = true;
+                        self.output.message = error;
+                    } finally {
+                        self.isLoading = false;
+                    }
+                },
+            }
+
+        })
+    </script>
+</body>
+
+</html>
